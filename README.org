@@ -1,0 +1,101 @@
+* kons-9-addons
+
+Some experiments and functions upon kons-9. As I have not completed the tour of kons-9 (and ignore most of it) what is this section may be completely useless. With time I found that some functions that appear here already exists in kons-9.
+
+** The λ macro
+I use this λ macro everywere:
+#+begin_src lisp
+;; to use λ in emacs: (define-key key-translation-map (kbd "C-c l") (kbd "λ"))
+(defmacro λ (lambda-list &body code) 
+  `(function (lambda ,lambda-list ,@code)))
+#+end_src
+
+** ~GET-SHAPE~ 
+
+#+begin_src lisp
+(defgeneric get-shape (scene-or-group name)
+  (:documentation
+   "Given a scene and a name, returns the shape with that name if it exists.")
+  (:method ((a-scene scene) name)
+    (get-shape (shape-root a-scene) name))
+  (:method ((group shape-group) name)
+    (loop
+      with found = nil
+      for c across (children group)
+      do
+         (cond ((and (subtypep (type-of c) 'shape)
+                     (eq (name c) name))
+                (setq found t))
+               ((subtypep (type-of c) 'shape-group)
+                (get-shape c name)))
+      until found
+      finally (return (if found c nil)))))  
+#+end_src
+
+** ~APPLY-TRANSFORM~ :experimental:
+
+#+begin_src lisp
+(defun apply-transform (shape &optional transform)
+  "Apply a transform to a shape (updates its points) according to the 
+     transform TRANSFORM or to its own transform. In the later case, 
+     shape's transform is reseted."
+  (let ((transf (or transform (transform shape))))
+    (loop
+      for i below (length (points shape))
+      for p in (loop
+                 with matrix = (transform-matrix transf)
+                 for p across (points shape)
+                 collect (transform-point matrix p))
+      do (setf (aref (points shape) i) p))
+    (unless transform
+      ;; when transform belongs to shape. reset it.
+      (reset-transform transf))))  
+#+end_src
+
+** Dealing with the viewport :wip:
+*** Functions to show/hide elements on the scene
+
+Taking adavantage of the special variables that define the visibility of scene elements or the way shapes are displayed we ca define show/hide functions. Since these definitions are repetitive let's do it with a macro:
+#+begin_src lisp
+(defmacro make-show-hide-function (v n)
+    (let ((show-f (intern (strcat "SHOW-" (symbol-name n))))
+          (hide-f (intern (strcat "HIDE-" (symbol-name n)))))
+      `(progn (defun ,show-f () (setq ,v t))
+              (defun ,hide-f () (setq ,v nil)))))
+
+(eval-when (:load-toplevel :compile-toplevel)
+  (loop
+    for (special-v name) in '((*display-filled?* faces)
+                              (*display-wireframe?* wireframe)
+                              (*display-points?* points)
+                              (*display-ground-plane?* ground)
+                              (*display-axes?* axes))
+    do (eval `(make-show-hide-function ,special-v ,name))))
+#+end_src
+
+Now we can use ~(hide-faces)~, ~(hide-axes)~, ~(hide-points)~, ~(hide-wireframe)~ or ~(hide-ground~) to hide elements and the corresponding show functions to show them.
+
+*** Changing the point of view
+
+While it is easy to change the point of view using the mouse, it is difficult to recover a given point of view or set it precisely. Let's define the ~def-viewpoint~ macro:
+
+#+begin_src lisp
+(defmacro def-viewpoint (name &key x-rot y-rot side-dist up-dist fwd-dist)
+  `(defun ,name ()
+     (setq *cam-x-rot* ,(or x-rot *cam-x-rot*)
+           *cam-y-rot* ,(or y-rot *cam-y-rot*)
+           *cam-side-dist* ,(or side-dist *cam-side-dist*)
+           *cam-up-dist* ,(or up-dist *cam-up-dist*)
+           *cam-fwd-dist* ,(or fwd-dist *cam-fwd-dist*))
+     t))  
+#+end_src
+
+This macro defines a function that position the camera. It may be used without parameters, for eaxmple after setting the desired positions using the mouse it can be memorized using:
+#+begin_src lisp
+(def-viewpoint favorite-viewpoint)
+#+end_src
+Memorize the current configuration that can be recovered using the newly defined ~FAVORITE-VIEWPOINT~ function. Another example may be a top-viewpoint:
+#+begin_src lisp
+(def-viewpoint top-viewpoint  :up-dist 0 :fwd-dist -10 :x-rot 90 :y-rot 0 :side-dist 0 :up-dist 0)  
+#+end_src
+which defines the ~top-viewpoint~ function.
