@@ -35,7 +35,7 @@ Given a scene groups hierarchy and a name, returns the corresponding shape. It m
 #+end_src
 
 ** ~APPLY-TRANSFORM~
-Applies a transfom to a shape. Kons-9 stores the shape original set points in the instance and a transform slot is the transformation (location, rotation & size) that must be applied to obtain the desired object. The transform is automatically applied before rendering. In some cases it is useful to make some computations in function of transformed points coordinates. The ~APPLY-TRANSFORM~ function computes transformed points ans resets. If shape is a polyhedron an after method re-computes normals.
+Applies a transfom to a shape. Kons-9 stores the shape original set points in the instance and a transform slot is the transformation (location, rotation & size) that must be applied to obtain the desired object. The transform is automatically applied before rendering. In some cases it is useful to make some computations in function of transformed points coordinates. The ~APPLY-TRANSFORM~ function computes transformed points and resets the transform. If shape is a polyhedron an after method re-computes normals.
 #+begin_src lisp
 (defmethod apply-transform ((s shape) &optional transform)
   "Apply a transform to a shape (updates its points) according to the 
@@ -99,8 +99,23 @@ This macro defines a function that position the camera. It may be used without p
 #+end_src
 Memorize the current configuration that can be recovered using the newly defined ~FAVORITE-VIEWPOINT~ function. Another example may be a top-viewpoint:
 #+begin_src lisp
-(def-viewpoint top-viewpoint  :up-dist 0 :fwd-dist -10 :x-rot 90 :y-rot 0 :side-dist 0 :up-dist 0)  
+(def-viewpoint top-viewpoint  :up-dist 0 :fwd-dist -10 :x-rot 90 :y-rot 0
+               :side-dist 0 :up-dist 0)  
 #+end_src
 which defines the ~top-viewpoint~ function.
 
+* About points
 
+- The method ~IS-POINT-IN-POLYGON?~ ~(points point)~ returns ~T~ if ~POINT~ is in the polygon formed by ~POINTS and ~NIL~ otherwise. ~POINTS~ may be a list of points, a vector of points or a instance of curve. The points must be in the XY plane.
+
+- The method ~IS-POINT-IN-POLYGON?*~ does the same but point must be co-planar (not necessarily in XY plane).
+  
+
+* About curves
+
+- The ~INSERT-CURVE~ ~(c1 c2 where)~ method replace a point in ~C1~ by ~C2~'s sequence of points. The paramter ~WHERE~ may be a integer or a point (that must exist in ~C1~). The modified curve s returned.
+
+- The ~REVERSE-CURVE-POINTS~ method reverse the order of points in a curve re returns the modified curve.
+
+- Function ~MAKE-ROUNDED-RECTANGLE-CURVE~ ~(width height radius)~ makes ...
+   
