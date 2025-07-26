@@ -6,6 +6,7 @@
 (defmacro λ (lambda-list &body code) 
   `(function (lambda ,lambda-list ,@code)))
 
+(defparameter *epsilon* 1.e-7)
 
 (defgeneric get-shape (name scene-or-group)
   (:documentation
@@ -187,3 +188,142 @@ POINT is inside the polygon, if not return NIL.")
     r1))
 
 ;;;----------------------------------------------------------------------
+
+;;;--Faces---------------------------------------------------------------
+
+(defgeneric adjacent-faces (vertex faces-or-polyh)
+  (:documentation "Returns the list of faces adjacent to a vertex among a list 
+of faces or a polyhedron.")
+  (:method ((vertex-index fixnum) (faces cons))
+      (remove-if
+       (lambda (f)
+         (not (member vertex-index f)))
+       faces))
+  (:method ((vertex-index fixnum) (a-shape polyhedron))
+    (loop
+      with adj-faces = nil
+      with adj-faces-normals = nil
+      for face across (faces a-shape)
+      for face-normal across (face-normals a-shape)
+      for belongs-to-face = (loop
+                              for p in face
+                              for is-eq = (= p vertex-index)
+                              until is-eq
+                              finally (return is-eq))
+      do (when belongs-to-face
+           (push face adj-faces)
+           (push face-normal adj-faces-normals))
+      finally (return (values (nreverse adj-faces)
+                              (nreverse adj-faces-normals))))))
+
+(defun faces-coplanar-p (normals)
+  "Given a list of (face) normals, returns T if they are parallel."
+  (loop
+    with n0 = (first normals)
+    for n in (rest normals)
+    for cross = (p:cross n0 n)
+    do (unless (p:parallel-p n0 n)
+         (format t "prod: ~A × ~A ~A~%" n0 n (p:parallel-p n0 n))
+         (return-from faces-coplanar-p nil))
+    finally (return t)))
+
+(defun edge-equal (e1 e2)
+  (or (and (equal (first e1) (first e2))
+           (equal (second e1) (second e2)))
+      (and (equal (first e1) (second e2))
+           (equal (second e1) (first e2)))))
+
+(defun face-edges (face)
+  "Given a face returns a list of pairs of point indices that correspond to 
+face' edges."
+  (labels ((face-edges-aux
+               (face n first)
+             (cond ((> n 1)
+                    (cons (subseq face 0 2)
+                          (face-edges-aux (cdr face) (- n 1) first)))
+                   (t (list (list (first face) first))))))
+    (face-edges-aux face (length face) (first face))))
+
+(defun polyhedron-edges (polyhedron)
+  ;; given a polyhedron returns the list of edges without duplicates.
+  (let ((es (loop
+              for face across (faces polyhedron)
+              append (face-edges face))))
+    (remove-duplicates es :test #'edge-equal)))
+
+(defun edge-faces (polyhedron edge)
+  ;; given a polyhedron and an edge, returns the list of faces that contain
+  ;; EDGE. 
+  (loop
+    with faces = nil
+    for f across (faces polyhedron)
+    do (when (member edge (face-edges f)
+                     :test #'edge-equal)
+         (push f faces))
+    finally (return faces)))
+
+(defun sort-edges (edges)
+  "Given a list of edges returns a list of contiguous edges.
+  for example given:
+   ((412 471) (471 259) (71 467) (467 412) (455 313) (10 455) (387 388)
+    (63 389) (389 347) (388 89) (73 387) (259 121) (313 73) (121 10)
+    (89 63))
+  returns:
+   ((347 71) (71 467) (467 412) (412 471) (471 259) (259 121)
+    (121 10) (10 455) (455 313) (313 73) (73 387) (387 388) (388 89)
+    (89 63))
+   this is useful for making a curve from a list of edges that
+   belong to a contour (for example)"
+  (loop
+    with sorted-edges = (list (first edges))
+    with edges = (rest edges)
+    do
+       (let* ((e (first (last sorted-edges)))
+              (next (find-if (λ (e_) (equal (first e_) (second e)))
+                             edges)))
+         ;; (format t "e: ~A next: ~A~%" e next)
+         ;; (format t "edges: ~A~%" edges)
+         ;; (format t "sorted-edges: ~A~%" sorted-edges)
+         (if next
+             (progn (setq sorted-edges (append sorted-edges (list next)))
+                    (setq edges (remove next edges :test #'equal)))
+             ))
+       ;; (print "contonue?")
+       ;; (read)
+    while (plusp (length edges))
+    finally (return sorted-edges)))
+
+;;;--Polyhedrons---------------------------------------------------------
+
+(defun contour-edges (polyhedron)
+  "Returns the list of edges that are on the contour of polyhedron." 
+  (loop
+    with edges = nil
+    for e in (polyhedron-edges polyhedron)
+    for faces = (edge-faces polyhedron e)
+    do
+       (when (= 1 (length faces))
+         (push e edges))
+    finally (return (sort-edges edges))))
+
+(defun contour-curve (polyhedron)
+  "Makes a curve that corresponds to the contour of POLYHEDRON."
+  (let* ((edges (contour-edges polyhedron))
+         (points-refs (mapcar #'first edges))
+         (points (loop
+                   for ref in points-refs
+                   collect (aref (points polyhedron) ref))))
+    (make-instance 'curve
+                   :points (apply #'vector points))))
+
+(defun contour-point-refs (polyhedron)
+  "Returns a list of points indices that corresponds to the contour of POLYHEDRON."
+  (mapcar #'first (contour-edges polyhedron)))
+
+(defun contour-points (polyhedron)
+ "Returns a list of points that corresponds to the contour of POLYHEDRON."
+  (let* ((edges (contour-edges polyhedron))
+         (points-refs (mapcar #'first edges)))
+    (loop
+      for ref in points-refs
+      collect (aref (points polyhedron) ref))))

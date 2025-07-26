@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2025-07-26 Sat 18:23 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>&lrm;</title>
+<meta name="author" content="Thibault Langlois" />
+<meta name="generator" content="Org Mode" />
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/readtheorg.css"/>
+<link rel="stylesheet" type="text/css" href="src/readtheorg_theme/css/search.css"/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/lib/js/jquery.stickytableheaders.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/search.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/readtheorg.js"></script>
+<style>pre.src{background:#343131;color:white;} </style>
+</head>
+<body>
+<div id="content" class="content">
+<div id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#org61b5ed1">1. kons-9-addons</a></li>
+<li><a href="#orgb94c004">2. Utilities</a>
+<ul>
+<li><a href="#org06e6e37">2.1. The λ macro</a></li>
+<li><a href="#orgf7d798d">2.2. <code>GET-SHAPE</code></a></li>
+<li><a href="#orgfd71446">2.3. <code>APPLY-TRANSFORM</code></a></li>
+<li><a href="#org073835c">2.4. Dealing with the viewport</a>
+<ul>
+<li><a href="#org2e96644">2.4.1. Functions to show/hide elements on the scene</a></li>
+<li><a href="#orgda43509">2.4.2. Changing the point of view</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#org3c93a9a">3. About points</a></li>
+<li><a href="#orge141678">4. About curves</a></li>
+<li><a href="#org5a2cd7d">5. About polyhedrons</a>
+<ul>
+<li><a href="#org30684aa">5.1. Functions for faces &amp; edges</a></li>
+<li><a href="#org0e8c337">5.2. Functions / methods for polyhedrons</a></li>
+</ul>
+</li>
+<li><a href="#orgc20915e">6. Delaunay triangulation</a>
+<ul>
+<li><a href="#org65fcf55">6.1. Example</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-org61b5ed1" class="outline-2">
+<h2 id="org61b5ed1"><span class="section-number-2">1.</span> kons-9-addons</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+Some experiments and functions upon kons-9. As I have not completed the tour of kons-9 (and ignore most of it) what is this section may be completely useless. With time I found that some functions that appear here already exists in kons-9.
+</p>
+</div>
+</div>
+<div id="outline-container-orgb94c004" class="outline-2">
+<h2 id="orgb94c004"><span class="section-number-2">2.</span> Utilities</h2>
+<div class="outline-text-2" id="text-2">
+</div>
+<div id="outline-container-org06e6e37" class="outline-3">
+<h3 id="org06e6e37"><span class="section-number-3">2.1.</span> The λ macro</h3>
+<div class="outline-text-3" id="text-2-1">
+<p>
+I use this λ macro everywere:
+</p>
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ff0000; font-weight: bold; font-style: italic;">;; </span><span style="color: #ffff00; font-weight: bold; font-style: italic;">to use &#955; in emacs: (define-key key-translation-map (kbd "C-c l") (kbd "&#955;"))</span>
+<span style="color: #ffffff;">(</span><span style="color: #b6a0ff;">defmacro</span> <span style="color: #feacd0;">&#955;</span> <span style="color: #ff66ff;">(</span>lambda-list <span style="color: #6ae4b9;">&amp;body</span> code<span style="color: #ff66ff;">)</span> 
+  `<span style="color: #ff66ff;">(</span>function <span style="color: #00eff0;">(</span><span style="color: #b6a0ff;">lambda</span> ,lambda-list ,@code<span style="color: #00eff0;">)</span><span style="color: #ff66ff;">)</span><span style="color: #ffffff;">)</span>
+</pre>
+</div>
+</div>
+</div>
+<div id="outline-container-orgf7d798d" class="outline-3">
+<h3 id="orgf7d798d"><span class="section-number-3">2.2.</span> <code>GET-SHAPE</code></h3>
+<div class="outline-text-3" id="text-2-2">
+<p>
+Given a scene groups hierarchy and a name, returns the corresponding shape. It may be used to get a shape for inspection.
+</p>
+
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ffffff;">(</span><span style="color: #b6a0ff;">defgeneric</span> <span style="color: #feacd0;">get-shape</span> <span style="color: #ff66ff;">(</span>name scene-or-group<span style="color: #ff66ff;">)</span>
+<span style="color: #ff66ff;">(</span><span style="color: #f78fe7;">:documentation</span>
+ <span style="color: #9ac8e0; font-style: italic;">"Given a scene and a name, returns the shape with that name if it exists."</span><span style="color: #ff66ff;">)</span>
+<span style="color: #ff66ff;">(</span><span style="color: #f78fe7;">:method</span> <span style="color: #00eff0;">(</span><span style="color: #ff6b55;">(</span>name symbol<span style="color: #ff6b55;">)</span> <span style="color: #ff6b55;">(</span>a-scene scene<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+  <span style="color: #00eff0;">(</span>get-shape name <span style="color: #ff6b55;">(</span>shape-root a-scene<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span><span style="color: #ff66ff;">)</span>
+<span style="color: #ff66ff;">(</span><span style="color: #f78fe7;">:method</span> <span style="color: #00eff0;">(</span><span style="color: #ff6b55;">(</span>name symbol<span style="color: #ff6b55;">)</span> <span style="color: #ff6b55;">(</span>group shape-group<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+  <span style="color: #00eff0;">(</span><span style="color: #b6a0ff;">loop</span>
+    with found = nil
+    for c across <span style="color: #ff6b55;">(</span>children group<span style="color: #ff6b55;">)</span>
+    while <span style="color: #ff6b55;">(</span>not found<span style="color: #ff6b55;">)</span>
+    do
+       <span style="color: #ff6b55;">(</span><span style="color: #b6a0ff;">cond</span> <span style="color: #efef00;">(</span><span style="color: #b6a0ff;">(</span>and <span style="color: #44df44;">(</span>subtypep <span style="color: #79a8ff;">(</span>type-of c<span style="color: #79a8ff;">)</span> 'scene-item<span style="color: #44df44;">)</span>
+                   <span style="color: #44df44;">(</span>eq <span style="color: #79a8ff;">(</span>name c<span style="color: #79a8ff;">)</span> name<span style="color: #44df44;">)</span><span style="color: #b6a0ff;">)</span>
+              <span style="color: #b6a0ff;">(</span>setq found c<span style="color: #b6a0ff;">)</span><span style="color: #efef00;">)</span>
+             <span style="color: #efef00;">(</span><span style="color: #b6a0ff;">(</span>subtypep <span style="color: #44df44;">(</span>type-of c<span style="color: #44df44;">)</span> 'shape-group<span style="color: #b6a0ff;">)</span>
+              <span style="color: #b6a0ff;">(</span>setq found <span style="color: #44df44;">(</span>get-shape name c<span style="color: #44df44;">)</span><span style="color: #b6a0ff;">)</span><span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span>
+    finally <span style="color: #ff6b55;">(</span><span style="color: #b6a0ff;">return</span> found<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span><span style="color: #ff66ff;">)</span><span style="color: #ffffff;">)</span>
+</pre>
+</div>
+</div>
+</div>
+<div id="outline-container-orgfd71446" class="outline-3">
+<h3 id="orgfd71446"><span class="section-number-3">2.3.</span> <code>APPLY-TRANSFORM</code></h3>
+<div class="outline-text-3" id="text-2-3">
+<p>
+Applies a transfom to a shape. Kons-9 stores the shape original set points in the instance and a transform slot is the transformation (location, rotation &amp; size) that must be applied to obtain the desired object. The transform is automatically applied before rendering. In some cases it is useful to make some computations in function of transformed points coordinates. The <code>APPLY-TRANSFORM</code> function computes transformed points and resets the transform. If shape is a polyhedron an after method re-computes normals.
+</p>
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ffffff;">(</span><span style="color: #b6a0ff;">defmethod</span> <span style="color: #feacd0;">apply-transform</span> <span style="color: #ff66ff;">(</span><span style="color: #00eff0;">(</span>s shape<span style="color: #00eff0;">)</span> <span style="color: #6ae4b9;">&amp;optional</span> transform<span style="color: #ff66ff;">)</span>
+  <span style="color: #9ac8e0; font-style: italic;">"Apply a transform to a shape (updates its points) according to the </span>
+<span style="color: #9ac8e0; font-style: italic;">     transform TRANSFORM or to its own transform. In the later case, </span>
+<span style="color: #9ac8e0; font-style: italic;">     shape's transform is reseted."</span>
+  <span style="color: #ff66ff;">(</span><span style="color: #b6a0ff;">let</span> <span style="color: #00eff0;">(</span><span style="color: #ff6b55;">(</span>transf <span style="color: #efef00;">(</span>or transform <span style="color: #b6a0ff;">(</span>transform s<span style="color: #b6a0ff;">)</span><span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+    <span style="color: #00eff0;">(</span><span style="color: #b6a0ff;">loop</span>
+      for i below <span style="color: #ff6b55;">(</span>length <span style="color: #efef00;">(</span>points s<span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span>
+      for p in <span style="color: #ff6b55;">(</span><span style="color: #b6a0ff;">loop</span>
+                 with matrix = <span style="color: #efef00;">(</span>transform-matrix transf<span style="color: #efef00;">)</span>
+                 for p across <span style="color: #efef00;">(</span>points s<span style="color: #efef00;">)</span>
+                 collect <span style="color: #efef00;">(</span>transform-point p matrix<span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span>
+      do <span style="color: #ff6b55;">(</span>setf <span style="color: #efef00;">(</span>aref <span style="color: #b6a0ff;">(</span>points s<span style="color: #b6a0ff;">)</span> i<span style="color: #efef00;">)</span> p<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+    <span style="color: #00eff0;">(</span><span style="color: #b6a0ff;">unless</span> transform
+      <span style="color: #ff0000; font-weight: bold; font-style: italic;">;; </span><span style="color: #ffff00; font-weight: bold; font-style: italic;">when transform belongs to shape. reset it.</span>
+      <span style="color: #ff6b55;">(</span>reset-transform transf<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+    s<span style="color: #ff66ff;">)</span><span style="color: #ffffff;">)</span>
+</pre>
+</div>
+
+<div class="note" id="org8d53e0a">
+<p>
+There is a problem with this function. I cannot be extended easily to <code>SHAPE-GROUP</code> in particular when shared objects are used. This needs some work.
+</p>
+
+</div>
+</div>
+</div>
+<div id="outline-container-org073835c" class="outline-3">
+<h3 id="org073835c"><span class="section-number-3">2.4.</span> Dealing with the viewport</h3>
+<div class="outline-text-3" id="text-2-4">
+</div>
+<div id="outline-container-org2e96644" class="outline-4">
+<h4 id="org2e96644"><span class="section-number-4">2.4.1.</span> Functions to show/hide elements on the scene</h4>
+<div class="outline-text-4" id="text-2-4-1">
+<p>
+Taking adavantage of the special variables that define the visibility of scene elements or the way shapes are displayed we ca define show/hide functions. Since these definitions are repetitive let's do it with a macro:
+</p>
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ffffff;">(</span><span style="color: #b6a0ff;">defmacro</span> <span style="color: #feacd0;">make-show-hide-function</span> <span style="color: #ff66ff;">(</span>v n<span style="color: #ff66ff;">)</span>
+    <span style="color: #ff66ff;">(</span><span style="color: #b6a0ff;">let</span> <span style="color: #00eff0;">(</span><span style="color: #ff6b55;">(</span>show-f <span style="color: #efef00;">(</span>intern <span style="color: #b6a0ff;">(</span>strcat <span style="color: #79a8ff;">"SHOW-"</span> <span style="color: #44df44;">(</span>symbol-name n<span style="color: #44df44;">)</span><span style="color: #b6a0ff;">)</span><span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span>
+          <span style="color: #ff6b55;">(</span>hide-f <span style="color: #efef00;">(</span>intern <span style="color: #b6a0ff;">(</span>strcat <span style="color: #79a8ff;">"HIDE-"</span> <span style="color: #44df44;">(</span>symbol-name n<span style="color: #44df44;">)</span><span style="color: #b6a0ff;">)</span><span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+      `<span style="color: #00eff0;">(</span><span style="color: #b6a0ff;">progn</span> <span style="color: #ff6b55;">(</span><span style="color: #b6a0ff;">defun</span> ,show-f <span style="color: #efef00;">()</span> <span style="color: #efef00;">(</span>setq ,v t<span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span>
+              <span style="color: #ff6b55;">(</span><span style="color: #b6a0ff;">defun</span> ,hide-f <span style="color: #efef00;">()</span> <span style="color: #efef00;">(</span>setq ,v nil<span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span><span style="color: #ff66ff;">)</span><span style="color: #ffffff;">)</span>
+
+<span style="color: #ffffff;">(</span><span style="color: #b6a0ff;">eval-when</span> <span style="color: #ff66ff;">(</span><span style="color: #f78fe7;">:load-toplevel</span> <span style="color: #f78fe7;">:compile-toplevel</span><span style="color: #ff66ff;">)</span>
+  <span style="color: #ff66ff;">(</span><span style="color: #b6a0ff;">loop</span>
+    for <span style="color: #00eff0;">(</span>special-v name<span style="color: #00eff0;">)</span> in '<span style="color: #00eff0;">(</span><span style="color: #ff6b55;">(</span>*display-filled?* faces<span style="color: #ff6b55;">)</span>
+                              <span style="color: #ff6b55;">(</span>*display-wireframe?* wireframe<span style="color: #ff6b55;">)</span>
+                              <span style="color: #ff6b55;">(</span>*display-points?* points<span style="color: #ff6b55;">)</span>
+                              <span style="color: #ff6b55;">(</span>*display-ground-plane?* ground<span style="color: #ff6b55;">)</span>
+                              <span style="color: #ff6b55;">(</span>*display-axes?* axes<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+    do <span style="color: #00eff0;">(</span>eval `<span style="color: #ff6b55;">(</span>make-show-hide-function ,special-v ,name<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span><span style="color: #ff66ff;">)</span><span style="color: #ffffff;">)</span>
+</pre>
+</div>
+
+<p>
+Now we can use <code>(hide-faces)</code>, <code>(hide-axes)</code>, <code>(hide-points)</code>, <code>(hide-wireframe)</code> or <code>(hide-ground</code>) to hide elements and the corresponding show functions to show them.
+</p>
+</div>
+</div>
+<div id="outline-container-orgda43509" class="outline-4">
+<h4 id="orgda43509"><span class="section-number-4">2.4.2.</span> Changing the point of view</h4>
+<div class="outline-text-4" id="text-2-4-2">
+<p>
+While it is easy to change the point of view using the mouse, it is difficult to recover a given point of view or set it precisely. Let's define the <code>def-viewpoint</code> macro:
+</p>
+
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ffffff;">(</span><span style="color: #b6a0ff;">defmacro</span> <span style="color: #feacd0;">def-viewpoint</span> <span style="color: #ff66ff;">(</span>name <span style="color: #6ae4b9;">&amp;key</span> x-rot y-rot side-dist up-dist fwd-dist<span style="color: #ff66ff;">)</span>
+  `<span style="color: #ff66ff;">(</span><span style="color: #b6a0ff;">defun</span> ,name <span style="color: #00eff0;">()</span>
+     <span style="color: #00eff0;">(</span>setq *cam-x-rot* ,<span style="color: #ff6b55;">(</span>or x-rot *cam-x-rot*<span style="color: #ff6b55;">)</span>
+           *cam-y-rot* ,<span style="color: #ff6b55;">(</span>or y-rot *cam-y-rot*<span style="color: #ff6b55;">)</span>
+           *cam-side-dist* ,<span style="color: #ff6b55;">(</span>or side-dist *cam-side-dist*<span style="color: #ff6b55;">)</span>
+           *cam-up-dist* ,<span style="color: #ff6b55;">(</span>or up-dist *cam-up-dist*<span style="color: #ff6b55;">)</span>
+           *cam-fwd-dist* ,<span style="color: #ff6b55;">(</span>or fwd-dist *cam-fwd-dist*<span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span>
+     t<span style="color: #ff66ff;">)</span><span style="color: #ffffff;">)</span>  
+</pre>
+</div>
+
+<p>
+This macro defines a function that position the camera. It may be used without parameters, for eaxmple after setting the desired positions using the mouse it can be memorized using:
+</p>
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ffffff;">(</span>def-viewpoint favorite-viewpoint<span style="color: #ffffff;">)</span>
+</pre>
+</div>
+<p>
+Memorize the current configuration that can be recovered using the newly defined <code>FAVORITE-VIEWPOINT</code> function. Another example may be a top-viewpoint:
+</p>
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ffffff;">(</span>def-viewpoint top-viewpoint  <span style="color: #f78fe7;">:up-dist</span> 0 <span style="color: #f78fe7;">:fwd-dist</span> -10 <span style="color: #f78fe7;">:x-rot</span> 90 <span style="color: #f78fe7;">:y-rot</span> 0
+               <span style="color: #f78fe7;">:side-dist</span> 0 <span style="color: #f78fe7;">:up-dist</span> 0<span style="color: #ffffff;">)</span>  
+</pre>
+</div>
+<p>
+which defines the <code>top-viewpoint</code> function.
+</p>
+</div>
+</div>
+</div>
+</div>
+<div id="outline-container-org3c93a9a" class="outline-2">
+<h2 id="org3c93a9a"><span class="section-number-2">3.</span> About points</h2>
+<div class="outline-text-2" id="text-3">
+<ul class="org-ul">
+<li>The method <code>IS-POINT-IN-POLYGON?</code> <code>(points point)</code> returns <code>T</code> if <code>POINT</code> is in the polygon formed by <code>POINTS</code> and <code>NIL</code> otherwise. <code>POINTS</code> may be a list of points, a vector of points or a instance of curve. The points must be in the XY plane.</li>
+
+<li>The method <code>IS-POINT-IN-POLYGON?*</code> does the same but points must be co-planar (not necessarily in XY plane).</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-orge141678" class="outline-2">
+<h2 id="orge141678"><span class="section-number-2">4.</span> About curves</h2>
+<div class="outline-text-2" id="text-4">
+<ul class="org-ul">
+<li>The <code>INSERT-CURVE</code> <code>(c1 c2 where)</code> method replace a point in <code>C1</code> by <code>C2</code>'s sequence of points. The paramter <code>WHERE</code> may be a integer or a point (that must exist in <code>C1</code>). The modified curve s returned.</li>
+
+<li>The <code>REVERSE-CURVE-POINTS</code> method reverse the order of points in a curve re returns the modified curve.</li>
+
+<li>Function <code>MAKE-ROUNDED-RECTANGLE-CURVE</code> <code>(width height radius)</code> makes &#x2026;</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-org5a2cd7d" class="outline-2">
+<h2 id="org5a2cd7d"><span class="section-number-2">5.</span> About polyhedrons</h2>
+<div class="outline-text-2" id="text-5">
+</div>
+<div id="outline-container-org30684aa" class="outline-3">
+<h3 id="org30684aa"><span class="section-number-3">5.1.</span> Functions for faces &amp; edges</h3>
+<div class="outline-text-3" id="text-5-1">
+<ul class="org-ul">
+<li><code>ADJACENT-FACES</code> (<code>VERTEX</code> <code>FACES-OR-POLYH</code>): Returns the list of faces adjacent to a vertex among a list of faces or a polyhedron.</li>
+<li><code>FACES-COPLANAR-P</code> (<code>NORMALS</code>) Given a list of (face) normals, returns <code>T</code> if they are parallel.</li>
+<li><code>FACE-EDGES</code> (<code>FACE</code>) given a face returns a list of pairs of point indices that correspond to face' edges.</li>
+<li><code>EDGE-FACES</code> (<code>POLYHEDRON</code> <code>EDGE</code>) Given a polyhedron and an edge, returns the list of faces that contain EDGE.</li>
+<li><p>
+<code>SORT-EDGES</code> (<code>EDGES</code>) Given a list of edges returns a list of contiguous edges.
+for example given:
+</p>
+<div class="org-src-container">
+<pre class="src src-nil">((412 471) (471 259) (71 467) (467 412) (455 313) (10 455) (387 388)
+ (63 389) (389 347) (388 89) (73 387) (259 121) (313 73) (121 10)
+ (89 63))
+</pre>
+</div>
+<p>
+returns:
+</p></li>
+</ul>
+<div class="org-src-container">
+<pre class="src src-nil">((347 71) (71 467) (467 412) (412 471) (471 259) (259 121)
+ (121 10) (10 455) (455 313) (313 73) (73 387) (387 388) (388 89)
+ (89 63))
+</pre>
+</div>
+<p>
+this is useful for making a curve from a list of edges that
+belong to a contour (for example)
+</p>
+</div>
+</div>
+<div id="outline-container-org0e8c337" class="outline-3">
+<h3 id="org0e8c337"><span class="section-number-3">5.2.</span> Functions / methods for polyhedrons</h3>
+<div class="outline-text-3" id="text-5-2">
+<ul class="org-ul">
+<li><code>POLYHEDRON-EDGES</code> (<code>POLYHEDRON</code>) Given a polyhedron returns the list of edges (without duplicates).</li>
+
+<li><code>CONTOUR-EDGES</code> (<code>POLYHEDRON</code>) Returns the list of edges that are on the contour of <code>POLYHEDRON</code>.</li>
+
+<li><code>CONTOUR-CURVE</code> (<code>POLYHEDRON</code>) Makes a curve that corresponds to the contour of <code>POLYHEDRON</code>.</li>
+
+<li><code>CONTOUR-POINT-REFS</code> (<code>POLYHEDRON</code>) Returns a list of points indices that corresponds to the contour of POLYHEDRON.</li>
+
+<li><code>CONTOUR-POINTS</code> (<code>POLYHEDRON</code>) Returns a list of points that corresponds to the contour of POLYHEDRON.</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="outline-container-orgc20915e" class="outline-2">
+<h2 id="orgc20915e"><span class="section-number-2">6.</span> Delaunay triangulation</h2>
+<div class="outline-text-2" id="text-6">
+<p>
+Adapted from <a href="https://github.com/photex/lofi-tri">lofi-tri</a> to use point-origin package. Main functions:
+</p>
+
+<ul class="org-ul">
+<li><code>DELAUNAY-2D-FACES*</code> (<code>POINTS</code> <code>POINT-INDICES)</code> method that, given a list points and point-indices returns a vector of faces obtained by triangulation. The <code>POINT-INDICES</code> are used to define the faces.</li>
+
+<li><code>DELAUNAY-2D-FACES</code> (<code>POINTS)</code> is a function that computes a list of faces given a set (list or vector) of points in plane XY. Faces redefined as lists of point indices in <code>POINTS</code>.</li>
+
+<li><code>DELAUNAY-SHAPE</code> (<code>POINTS)</code> is like <code>DELAUNAY-2D-FACES</code> but creates an instance of polyhedron.</li>
+</ul>
+</div>
+<div id="outline-container-org65fcf55" class="outline-3">
+<h3 id="org65fcf55"><span class="section-number-3">6.1.</span> Example</h3>
+<div class="outline-text-3" id="text-6-1">
+<p>
+This function creates a set of random points in a square, computes faces and makes a polyhedron.
+</p>
+<div class="org-src-container">
+<pre class="src src-lisp"><span style="color: #ffffff;">(</span><span style="color: #b6a0ff;">defun</span> <span style="color: #feacd0;">square-filled-with-random-triangles</span> <span style="color: #ff66ff;">()</span>
+  <span style="color: #ff66ff;">(</span><span style="color: #b6a0ff;">with-clear-scene</span>
+    <span style="color: #00eff0;">(</span><span style="color: #b6a0ff;">let*</span> <span style="color: #ff6b55;">(</span><span style="color: #efef00;">(</span>points
+             <span style="color: #b6a0ff;">(</span><span style="color: #b6a0ff;">loop</span>
+               repeat 400
+               for x = <span style="color: #44df44;">(</span>- <span style="color: #79a8ff;">(</span>random 4.0<span style="color: #79a8ff;">)</span> 2.0<span style="color: #44df44;">)</span> 
+               for y = <span style="color: #44df44;">(</span>- <span style="color: #79a8ff;">(</span>random 4.0<span style="color: #79a8ff;">)</span> 2.0<span style="color: #44df44;">)</span> 
+               collect <span style="color: #44df44;">(</span>p! x y 0<span style="color: #44df44;">)</span><span style="color: #b6a0ff;">)</span><span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span>
+      <span style="color: #ff6b55;">(</span>add-shape *scene* <span style="color: #efef00;">(</span>delaunay-2d-shape points<span style="color: #efef00;">)</span><span style="color: #ff6b55;">)</span><span style="color: #00eff0;">)</span><span style="color: #ff66ff;">)</span><span style="color: #ffffff;">)</span>  
+</pre>
+</div>
+
+
+<div id="orge299989" class="figure">
+<p><img src="./images/screenshot-2025-07-26-12:43:40.png" alt="screenshot-2025-07-26-12:43:40.png" />
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Thibault Langlois</p>
+<p class="date">Created: 2025-07-26 Sat 18:23</p>
+<p class="validation"><a href="https://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

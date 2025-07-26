@@ -1,3 +1,7 @@
+#+SETUPFILE: theme-readtheorg.setup
+#+HTML_HEAD: <style>pre.src{background:#343131;color:white;} </style>
+#+STARTUP: hideblocks, inlineimages
+
 * kons-9-addons
 
 Some experiments and functions upon kons-9. As I have not completed the tour of kons-9 (and ignore most of it) what is this section may be completely useless. With time I found that some functions that appear here already exists in kons-9.
@@ -55,6 +59,10 @@ Applies a transfom to a shape. Kons-9 stores the shape original set points in th
     s))
 #+end_src
 
+#+begin_note
+There is a problem with this function. I cannot be extended easily to ~SHAPE-GROUP~ in particular when shared objects are used. This needs some work.
+#+end_note
+
 ** Dealing with the viewport 
 *** Functions to show/hide elements on the scene
 
@@ -106,9 +114,9 @@ which defines the ~top-viewpoint~ function.
 
 * About points
 
-- The method ~IS-POINT-IN-POLYGON?~ ~(points point)~ returns ~T~ if ~POINT~ is in the polygon formed by ~POINTS and ~NIL~ otherwise. ~POINTS~ may be a list of points, a vector of points or a instance of curve. The points must be in the XY plane.
+- The method ~IS-POINT-IN-POLYGON?~ ~(points point)~ returns ~T~ if ~POINT~ is in the polygon formed by ~POINTS~ and ~NIL~ otherwise. ~POINTS~ may be a list of points, a vector of points or a instance of curve. The points must be in the XY plane.
 
-- The method ~IS-POINT-IN-POLYGON?*~ does the same but point must be co-planar (not necessarily in XY plane).
+- The method ~IS-POINT-IN-POLYGON?*~ does the same but points must be co-planar (not necessarily in XY plane).
   
 
 * About curves
@@ -118,4 +126,69 @@ which defines the ~top-viewpoint~ function.
 - The ~REVERSE-CURVE-POINTS~ method reverse the order of points in a curve re returns the modified curve.
 
 - Function ~MAKE-ROUNDED-RECTANGLE-CURVE~ ~(width height radius)~ makes ...
-   
+
+* About polyhedrons
+
+** Functions for faces & edges
+
+- ~ADJACENT-FACES~ (~VERTEX~ ~FACES-OR-POLYH~): Returns the list of faces adjacent to a vertex among a list of faces or a polyhedron.
+- ~FACES-COPLANAR-P~ (~NORMALS~) Given a list of (face) normals, returns ~T~ if they are parallel.
+- ~FACE-EDGES~ (~FACE~) given a face returns a list of pairs of point indices that correspond to face' edges.  
+- ~EDGE-FACES~ (~POLYHEDRON~ ~EDGE~) Given a polyhedron and an edge, returns the list of faces that contain EDGE.
+- ~SORT-EDGES~ (~EDGES~) Given a list of edges returns a list of contiguous edges.
+  for example given:
+  #+begin_src
+   ((412 471) (471 259) (71 467) (467 412) (455 313) (10 455) (387 388)
+    (63 389) (389 347) (388 89) (73 387) (259 121) (313 73) (121 10)
+    (89 63))
+    #+end_src
+  returns:
+#+begin_src
+   ((347 71) (71 467) (467 412) (412 471) (471 259) (259 121)
+    (121 10) (10 455) (455 313) (313 73) (73 387) (387 388) (388 89)
+    (89 63))
+#+end_src
+this is useful for making a curve from a list of edges that
+belong to a contour (for example)
+
+** Functions / methods for polyhedrons
+
+- ~POLYHEDRON-EDGES~ (~POLYHEDRON~) Given a polyhedron returns the list of edges (without duplicates).
+
+- ~CONTOUR-EDGES~ (~POLYHEDRON~) Returns the list of edges that are on the contour of ~POLYHEDRON~.
+
+- ~CONTOUR-CURVE~ (~POLYHEDRON~) Makes a curve that corresponds to the contour of ~POLYHEDRON~.
+
+- ~CONTOUR-POINT-REFS~ (~POLYHEDRON~) Returns a list of points indices that corresponds to the contour of POLYHEDRON.
+
+- ~CONTOUR-POINTS~ (~POLYHEDRON~) Returns a list of points that corresponds to the contour of POLYHEDRON.
+
+  
+* Delaunay triangulation
+Adapted from [[https://github.com/photex/lofi-tri][lofi-tri]] to use point-origin package. Main functions:
+
+- ~DELAUNAY-2D-FACES*~ (~POINTS~ ~POINT-INDICES)~ method that, given a list points and point-indices returns a vector of faces obtained by triangulation. The ~POINT-INDICES~ are used to define the faces.
+
+- ~DELAUNAY-2D-FACES~ (~POINTS)~ is a function that computes a list of faces given a set (list or vector) of points in plane XY. Faces redefined as lists of point indices in ~POINTS~.   
+
+- ~DELAUNAY-SHAPE~ (~POINTS)~ is like ~DELAUNAY-2D-FACES~ but creates an instance of polyhedron.
+
+** Example
+
+This function creates a set of random points in a square, computes faces and makes a polyhedron.
+#+begin_src lisp
+(defun square-filled-with-random-triangles ()
+  (with-clear-scene
+    (let* ((points
+             (loop
+               repeat 400
+               for x = (- (random 4.0) 2.0) 
+               for y = (- (random 4.0) 2.0) 
+               collect (p! x y 0))))
+      (add-shape *scene* (delaunay-2d-shape points)))))  
+#+end_src
+
+[[./images/screenshot-2025-07-26-12:43:40.png]]
+
+
+
